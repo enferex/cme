@@ -8,9 +8,10 @@ all: debug
 debug: CFLAGS += -g3 -O0 -std=gnu11 -Wall
 debug: $(APP)
 
-.PHONY: test-debug
-test-debug: CFLAGS += -DTEST_DEBUG
-test-debug: debug $(APP)
+.PHONY: test
+test: test.c
+	$(CC) $^ -o $@
+	./test
 
 $(APP): main.c
 	$(CC) -o $@ $^ $(CFLAGS)
