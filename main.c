@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
   FE(pid != TEMP_FAILURE_RETRY(waitpid(pid, &wstatus, 0)),
      "Error waiting for target process.");
   if (WIFEXITED(wstatus)) {
-    printf("[+] Target process (%d) has exited.\n", pid);
+    L("Target process (%d) has exited.", pid);
     exit(0);
   }
 
@@ -204,7 +204,7 @@ int main(int argc, char **argv) {
 
   // Resume.
   ptrace(PTRACE_CONT, pid, NULL, NULL);
-  printf("[+] Read Errors: %d, Write Errors: %d, Read/Write Attempts: %d\n",
-         n_read_errs, n_write_errs, n_iterations);
+  L("Read Errors: %d, Write Errors: %d, Read/Write Attempts: %d", n_read_errs,
+    n_write_errs, n_iterations);
   return 0;
 }
