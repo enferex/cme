@@ -1,5 +1,5 @@
-cme: Coronal Mass Exception - Simulate unexpected bit flips in a process.
-=========================================================================
+cme: Coronal Mass Exception - Inject unexpected bit-flips in a process.
+=======================================================================
 cme is a utility for simulating "random" bit-flips in a running program. This
 tool can be used to test the resilience of your program towards unexpected
 bit flips.
