@@ -8,6 +8,7 @@
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <time.h>
+#define __USE_GNU
 #include <unistd.h>
 
 typedef struct _memory_region_t {
@@ -77,21 +78,6 @@ static void attack(pid_t pid, const memory_regions_t regions, unsigned count,
       iter + 1, n_iters, bit, (void *)addr, n,
       region->pathname ? region->pathname : "unnamed");
 
-  // Seize and then interrupt the target process.
-  long err = ptrace(PTRACE_SEIZE, pid, NULL, NULL);
-  FE(err == -1, "Error seizing target process %d", pid);
-  err = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
-  FE(err, "Unable to interrupt the target process.");
-
-  // Wait for the target process.
-  int wstatus = 0;
-  int wpid = TEMP_FAILURE_RETRY(waitpid(pid, &wstatus, 0));
-  FE (wpid != pid, "Error waiting on target process.");
-  if (WIFEXITED(wstatus)) {
-    printf("[+] Target process (%d) has exited.\n", pid);
-    exit(0);
-  }
-  
   bool found_errs = false;
 
   // Read a byte to manipulate.
@@ -102,7 +88,7 @@ static void attack(pid_t pid, const memory_regions_t regions, unsigned count,
   // Write that manipulated byte back to the process.
   if (!errno) {
     data ^= (1 << bit);
-    err = ptrace(PTRACE_POKEDATA, pid, addr, data);
+    long err = ptrace(PTRACE_POKEDATA, pid, addr, data);
     n_write_errs += !!err;
     found_errs |= !!err;
   }
@@ -116,7 +102,7 @@ static memory_regions_t get_memory_map(pid_t pid, unsigned *count) {
   L("Targeting process %d", pid);
 
   FILE *fp = fopen(path, "r");
-  F(fp, "Error opening memory map %s: %s\n", path, strerror(errno));
+  F(fp, "Error opening memory map %s: %s", path, strerror(errno));
 
   // Read and parse each line in the maps file for 'pid'.
   *count = 0;
@@ -192,12 +178,32 @@ int main(int argc, char **argv) {
   if (pid == 0) F(0, "Invalid arguments, -p must be specified.");
   if (n_iterations < 1) F(0, "Invalid number of iterations (see -h).");
 
+  // Read the memory regions belonging to the target process.
   unsigned n_regions = 0;
   memory_regions_t regions = get_memory_map(pid, &n_regions);
   L("Found %u candidate memory regions to write to.", n_regions);
+
+  // Seize and interrupt the target process.
+  long err = ptrace(PTRACE_SEIZE, pid, NULL, NULL);
+  FE(err == -1, "Error seizing target process %d", pid);
+  err = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
+  FE(err, "Unable to interrupt the target process.");
+
+  // Wait for the interrupted target process.
+  int wstatus = 0;
+  FE(pid != TEMP_FAILURE_RETRY(waitpid(pid, &wstatus, 0)),
+     "Error waiting for target process.");
+  if (WIFEXITED(wstatus)) {
+    printf("[+] Target process (%d) has exited.\n", pid);
+    exit(0);
+  }
+
+  // Attack.
   for (int i = 0; i < n_iterations; ++i)
     attack(pid, regions, n_regions, i, n_iterations);
 
+  // Resume.
+  ptrace(PTRACE_CONT, pid, NULL, NULL);
   printf("[+] Read Errors: %d, Write Errors: %d, Read/Write Attempts: %d\n",
          n_read_errs, n_write_errs, n_iterations);
   return 0;
