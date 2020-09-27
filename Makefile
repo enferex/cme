@@ -1,11 +1,11 @@
 CC=clang
-CFLAGS=
+CFLAGS=-std=gnu11 -Wall
 APP=cme
 
 all: debug
 
 .PHONY: debug
-debug: CFLAGS += -g3 -O0 -std=gnu11 -Wall
+debug: CFLAGS += -g3 -O0
 debug: $(APP)
 
 .PHONY: test
